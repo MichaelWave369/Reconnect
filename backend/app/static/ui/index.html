@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Reconnect — Find the people who matter</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">🔗</div>
+        <div>
+          <div class="name">Reconnect</div>
+          <div class="sub">Find the people who matter</div>
+        </div>
+      </div>
+
+      <div class="box">
+        <div class="row">
+          <input id="globalSearchInput" class="input" placeholder="Search across all cases…" />
+          <button id="globalSearchBtn" class="btn">Go</button>
+        </div>
+        <div id="globalSearchResults" class="results"></div>
+      </div>
+
+      <div class="box">
+        <div class="box-title">Your Cases</div>
+        <div id="caseList" class="list"></div>
+        <button id="newCaseBtn" class="btn block warm">+ Start a new search</button>
+      </div>
+
+      <div class="box">
+        <div class="box-title">Tools</div>
+        <button id="refreshBtn" class="btn block secondary">Refresh</button>
+        <a class="btn block secondary" href="/health" target="_blank">System health</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- Welcome screen (shown when no case selected) -->
+      <div id="welcomeScreen" class="panel">
+        <div class="welcome">
+          <span class="heart">🔗</span>
+          <h1>Welcome to Reconnect</h1>
+          <p>This is a safe, private space to organize your search for someone you've lost contact with. Everything stays on your computer — nothing is sent anywhere.</p>
+          <p>Whether you're looking for a parent, a sibling, or an old friend, you're in the right place. Take it one step at a time.</p>
+          <button id="welcomeStartBtn" class="btn large warm">Begin your search →</button>
+        </div>
+      </div>
+
+      <!-- Case view (shown when a case is selected) -->
+      <div id="caseView" class="hidden">
+        <header class="topbar">
+          <div class="crumbs">
+            <span class="pill" id="currentCasePill">No case selected</span>
+            <span class="muted" id="currentCaseMeta"></span>
+          </div>
+          <div class="actions">
+            <button id="exportBtn" class="btn secondary">Export PDF</button>
+            <button id="ragBtn" class="btn secondary">AI Summary</button>
+          </div>
+        </header>
+
+        <div class="tabs" id="tabs">
+          <button class="tab active" data-tab="overview">Overview</button>
+          <button class="tab" data-tab="search">Search Hub</button>
+          <button class="tab" data-tab="evidence">Evidence</button>
+          <button class="tab" data-tab="stateinfo">State Records</button>
+          <button class="tab" data-tab="tasks">Tasks</button>
+          <button class="tab" data-tab="documents">Documents</button>
+          <button class="tab" data-tab="graph">Connections</button>
+          <button class="tab" data-tab="audit">Audit Log</button>
+        </div>
+
+        <section class="panel" id="panel-overview"></section>
+        <section class="panel hidden" id="panel-search"></section>
+        <section class="panel hidden" id="panel-evidence"></section>
+        <section class="panel hidden" id="panel-stateinfo"></section>
+        <section class="panel hidden" id="panel-tasks"></section>
+        <section class="panel hidden" id="panel-documents"></section>
+        <section class="panel hidden" id="panel-graph"></section>
+        <section class="panel hidden" id="panel-audit"></section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Wizard overlay (for guided case creation) -->
+  <div id="wizardOverlay" class="wizard-overlay hidden">
+    <div class="wizard">
+      <div class="wizard-dots" id="wizardDots"></div>
+
+      <div class="wizard-step active" data-step="1">
+        <h2>Let's start with who you're looking for</h2>
+        <p class="subtitle">Take your time. You can always come back and add more later.</p>
+        <label class="label">What is their full name?</label>
+        <input class="input" id="wiz-name" placeholder="First and last name as you know it" />
+        <label class="label">Give this search a title (for your reference)</label>
+        <input class="input" id="wiz-title" placeholder='e.g., "Finding Mom" or "Locating Uncle Ray"' />
+      </div>
+
+      <div class="wizard-step" data-step="2">
+        <h2>What do you remember?</h2>
+        <p class="subtitle">Even partial information helps. Leave anything blank that you don't know.</p>
+        <label class="label">Date of birth (or approximate year)</label>
+        <input class="input" id="wiz-dob" placeholder="YYYY-MM-DD or just the year, e.g. 1955" />
+        <label class="label">Any other names they went by?</label>
+        <input class="input" id="wiz-aliases" placeholder="Maiden name, nicknames, married names…" />
+        <label class="label">Where were they last living?</label>
+        <input class="input" id="wiz-location" placeholder="City, State — even a rough area helps" />
+      </div>
+
+      <div class="wizard-step" data-step="3">
+        <h2>Who else might be connected?</h2>
+        <p class="subtitle">Relatives and contacts are some of the strongest leads. Searching for people connected to the person you're looking for often reveals shared records.</p>
+        <label class="label">Relatives or people they knew (separate with commas)</label>
+        <textarea class="textarea" id="wiz-relatives" rows="3" placeholder="e.g., Mary Johnson (sister), Robert Smith (husband), Dr. Garcia (physician)"></textarea>
+        <label class="label">Anything else you remember (notes to yourself)</label>
+        <textarea class="textarea" id="wiz-notes" rows="4" placeholder="Last time you spoke, circumstances of losing contact, any details that might help…"></textarea>
+      </div>
+
+      <div class="wizard-step" data-step="4">
+        <h2>You're ready to begin</h2>
+        <p class="subtitle">Reconnect will organize your search and guide you through the best databases and resources to check. Remember: every piece of information you find, even "no results," is progress.</p>
+        <div class="card card-warm" style="margin-top:16px;">
+          <strong>What happens next:</strong>
+          <ul style="margin-top:8px; padding-left: 20px; font-size:14px; line-height:1.8;">
+            <li>We'll create your case and generate targeted search links for 40+ databases</li>
+            <li>You'll see guidance for each source — what to look for and what to do if you find something</li>
+            <li>If you know the state, we'll show you exactly how to request official records</li>
+            <li>Everything is saved locally on your computer — private and secure</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="wizard-nav">
+        <button class="btn secondary" id="wizBack">← Back</button>
+        <button class="btn warm" id="wizNext">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Case edit dialog -->
+  <dialog id="caseDialog" class="dialog">
+    <form method="dialog" class="dialog-body" id="caseForm">
+      <div class="dialog-title">Edit case details</div>
+      <label class="label">Title</label>
+      <input class="input" name="title" required placeholder='e.g., "Finding Mom"' />
+      <label class="label">Subject name</label>
+      <input class="input" name="subject_name" required placeholder="Full legal name" />
+      <label class="label">DOB</label>
+      <input class="input" name="dob" placeholder="YYYY-MM-DD" />
+      <label class="label">Aliases</label>
+      <input class="input" name="aliases" placeholder="Nicknames, maiden names…" />
+      <label class="label">Last known locations</label>
+      <input class="input" name="last_known_locations" placeholder="City, State" />
+      <label class="label">Relatives / contacts</label>
+      <input class="input" name="relatives" placeholder="Comma-separated" />
+      <label class="label">Notes</label>
+      <textarea class="textarea" name="notes" rows="4" placeholder="Context, last contact, concerns…"></textarea>
+      <div class="row end" style="margin-top:16px">
+        <button class="btn secondary" value="cancel">Cancel</button>
+        <button class="btn" id="caseSaveBtn" value="default">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- General modal -->
+  <dialog id="modal" class="dialog">
+    <form method="dialog" class="dialog-body">
+      <div class="dialog-title" id="modalTitle">Details</div>
+      <div id="modalBody" class="mono" style="max-height:60vh; overflow-y:auto;"></div>
+      <div class="row end" style="margin-top:16px">
+        <button class="btn" value="ok">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

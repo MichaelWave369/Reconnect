@@ -1,0 +1,20 @@
+services:
+  reconnect:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/app/data
+    environment:
+      # Bind inside the container so the published port works.
+      - HOST=0.0.0.0
+      - PORT=8000
+
+      # Local-first storage paths (persisted via the volume above)
+      - RECONNECT_DB=/app/data/reconnect.db
+      - RECONNECT_UPLOAD_DIR=/app/data/uploads
+
+      # Optional: local AI summary via Ollama
+      - RECONNECT_OLLAMA=0
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=llama3.1
