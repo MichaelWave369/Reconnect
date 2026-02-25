@@ -82,8 +82,16 @@ pip install -r requirements.txt
 python main.py
 ```
 
-> **Security note:** Reconnect binds to **localhost only** by default.
+Or run directly with uvicorn:
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+> **Security note:** Reconnect binds to **localhost only** by default when using `python main.py`.
 > To intentionally allow other devices on your network to access it, set `HOST=0.0.0.0`.
+
+> **Reload note:** autoreload is disabled by default and is intended for local development only.
+> Enable it with `RECONNECT_RELOAD=1` (it is forced off in Streamlit-managed runtimes).
 
 5. Open your browser:
 - **UI**: http://localhost:8000
@@ -100,6 +108,13 @@ export RECONNECT_OLLAMA=1
 export OLLAMA_MODEL=llama3.1
 ```
 Requires [Ollama](https://ollama.ai) running locally.
+
+
+### Streamlit (Optional)
+```bash
+streamlit run streamlit_app.py
+```
+This entrypoint does not run uvicorn and is safe for Streamlit Cloud environments.
 
 ### Docker (Optional)
 ```bash
