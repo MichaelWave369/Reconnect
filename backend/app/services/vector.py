@@ -75,7 +75,17 @@ def upsert_vector(
               meta_json=excluded.meta_json,
               created_at=excluded.created_at
             """,
-            (vid, case_id, ref_type, ref_id, modality, dim, json.dumps(vec), json.dumps(meta or {}), now_iso()),
+            (
+                vid,
+                case_id,
+                ref_type,
+                ref_id,
+                modality,
+                dim,
+                json.dumps(vec),
+                json.dumps(meta or {}),
+                now_iso(),
+            ),
         )
     return vid
 

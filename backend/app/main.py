@@ -68,6 +68,7 @@ app.add_middleware(
 UI_DIR = Path(__file__).parent / "static" / "ui"
 app.mount("/static", StaticFiles(directory=str(UI_DIR)), name="static")
 
+
 @app.on_event("startup")
 def _startup():
     init_db()
@@ -83,11 +84,20 @@ def _actor(headers: Dict[str, str]) -> str:
     return headers.get("x-actor", "local")
 
 
-def audit(action: str, actor: str, case_id: Optional[str] = None, meta: Optional[Dict[str, Any]] = None) -> None:
+def audit(
+    action: str, actor: str, case_id: Optional[str] = None, meta: Optional[Dict[str, Any]] = None
+) -> None:
     with db_cursor() as cur:
         cur.execute(
             "INSERT INTO audit_log(id, actor, action, case_id, meta_json, created_at) VALUES (?,?,?,?,?,?)",
-            (new_id("a_"), actor, action, case_id, json.dumps(meta or {}, ensure_ascii=False), now_iso()),
+            (
+                new_id("a_"),
+                actor,
+                action,
+                case_id,
+                json.dumps(meta or {}, ensure_ascii=False),
+                now_iso(),
+            ),
         )
 
 
@@ -313,24 +323,56 @@ def create_task(case_id: str, payload: TaskCreate, request: Request):
             raise HTTPException(404, "Case not found")
         cur.execute(
             "INSERT INTO tasks(id, case_id, title, status, due_date, priority, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
-            (task_id, case_id, payload.title.strip(), "open", payload.due_date, int(payload.priority), payload.notes, now, now),
+            (
+                task_id,
+                case_id,
+                payload.title.strip(),
+                "open",
+                payload.due_date,
+                int(payload.priority),
+                payload.notes,
+                now,
+                now,
+            ),
         )
     # index task for search and retrieval
-    upsert_vector(case_id=case_id, ref_type="task", ref_id=task_id, modality="text",
-                 vec=hash_embed((payload.title or "") + "\n" + (payload.notes or "")),
-                 meta={"title": payload.title})
-    audit("task.created", _actor(request.headers), case_id, {"task_id": task_id, "title": payload.title})
+    upsert_vector(
+        case_id=case_id,
+        ref_type="task",
+        ref_id=task_id,
+        modality="text",
+        vec=hash_embed((payload.title or "") + "\n" + (payload.notes or "")),
+        meta={"title": payload.title},
+    )
+    audit(
+        "task.created",
+        _actor(request.headers),
+        case_id,
+        {"task_id": task_id, "title": payload.title},
+    )
     try:
         rebuild_fts(case_id)
     except Exception:
         pass
-    return {"id": task_id, "case_id": case_id, "title": payload.title.strip(), "status": "open", "due_date": payload.due_date, "priority": int(payload.priority), "notes": payload.notes, "created_at": now, "updated_at": now}
+    return {
+        "id": task_id,
+        "case_id": case_id,
+        "title": payload.title.strip(),
+        "status": "open",
+        "due_date": payload.due_date,
+        "priority": int(payload.priority),
+        "notes": payload.notes,
+        "created_at": now,
+        "updated_at": now,
+    }
 
 
 @app.patch("/cases/{case_id}/tasks/{task_id}", response_model=TaskOut)
 def update_task(case_id: str, task_id: str, payload: TaskUpdate, request: Request):
     with db_cursor() as cur:
-        row = cur.execute("SELECT * FROM tasks WHERE id=? AND case_id=?", (task_id, case_id)).fetchone()
+        row = cur.execute(
+            "SELECT * FROM tasks WHERE id=? AND case_id=?", (task_id, case_id)
+        ).fetchone()
         if not row:
             raise HTTPException(404, "Task not found")
         new_title = payload.title if payload.title is not None else row["title"]
@@ -343,15 +385,30 @@ def update_task(case_id: str, task_id: str, payload: TaskUpdate, request: Reques
             "UPDATE tasks SET title=?, status=?, due_date=?, priority=?, notes=?, updated_at=? WHERE id=? AND case_id=?",
             (new_title, new_status, new_due, new_pri, new_notes, now, task_id, case_id),
         )
-    upsert_vector(case_id=case_id, ref_type="task", ref_id=task_id, modality="text",
-                 vec=hash_embed((new_title or "") + "\n" + (new_notes or "")),
-                 meta={"title": new_title})
+    upsert_vector(
+        case_id=case_id,
+        ref_type="task",
+        ref_id=task_id,
+        modality="text",
+        vec=hash_embed((new_title or "") + "\n" + (new_notes or "")),
+        meta={"title": new_title},
+    )
     audit("task.updated", _actor(request.headers), case_id, {"task_id": task_id})
     try:
         rebuild_fts(case_id)
     except Exception:
         pass
-    return {"id": task_id, "case_id": case_id, "title": new_title, "status": new_status, "due_date": new_due, "priority": new_pri, "notes": new_notes, "created_at": row["created_at"], "updated_at": now}
+    return {
+        "id": task_id,
+        "case_id": case_id,
+        "title": new_title,
+        "status": new_status,
+        "due_date": new_due,
+        "priority": new_pri,
+        "notes": new_notes,
+        "created_at": row["created_at"],
+        "updated_at": now,
+    }
 
 
 @app.delete("/cases/{case_id}/tasks/{task_id}")
@@ -398,10 +455,31 @@ def add_event(case_id: str, payload: EventCreate, request: Request):
             raise HTTPException(404, "Case not found")
         cur.execute(
             "INSERT INTO events(id, case_id, event_type, title, event_date, data_json, created_at) VALUES (?,?,?,?,?,?,?)",
-            (ev_id, case_id, payload.event_type, payload.title, payload.event_date, json.dumps(payload.data or {}, ensure_ascii=False), now),
+            (
+                ev_id,
+                case_id,
+                payload.event_type,
+                payload.title,
+                payload.event_date,
+                json.dumps(payload.data or {}, ensure_ascii=False),
+                now,
+            ),
         )
-    audit("timeline.event.added", _actor(request.headers), case_id, {"event_id": ev_id, "title": payload.title})
-    return {"id": ev_id, "case_id": case_id, "event_type": payload.event_type, "title": payload.title, "event_date": payload.event_date, "data": payload.data or {}, "created_at": now}
+    audit(
+        "timeline.event.added",
+        _actor(request.headers),
+        case_id,
+        {"event_id": ev_id, "title": payload.title},
+    )
+    return {
+        "id": ev_id,
+        "case_id": case_id,
+        "event_type": payload.event_type,
+        "title": payload.title,
+        "event_date": payload.event_date,
+        "data": payload.data or {},
+        "created_at": now,
+    }
 
 
 @app.delete("/cases/{case_id}/timeline/{event_id}")
@@ -462,15 +540,32 @@ def add_evidence(case_id: str, payload: EvidenceCreate, request: Request):
 
     # Index for similarity and retrieval (text only)
     blob = (payload.title or "") + "\n" + (payload.url or "") + "\n" + (payload.content or "")
-    upsert_vector(case_id=case_id, ref_type="evidence", ref_id=ev_id, modality="text",
-                 vec=hash_embed(blob), meta={"title": payload.title, "kind": payload.kind})
+    upsert_vector(
+        case_id=case_id,
+        ref_type="evidence",
+        ref_id=ev_id,
+        modality="text",
+        vec=hash_embed(blob),
+        meta={"title": payload.title, "kind": payload.kind},
+    )
 
-    audit("evidence.added", _actor(request.headers), case_id, {"evidence_id": ev_id, "kind": payload.kind})
+    audit(
+        "evidence.added",
+        _actor(request.headers),
+        case_id,
+        {"evidence_id": ev_id, "kind": payload.kind},
+    )
     try:
         rebuild_fts(case_id)
     except Exception:
         pass
-    return {"id": ev_id, "case_id": case_id, **payload.model_dump(), "file_path": None, "created_at": now}
+    return {
+        "id": ev_id,
+        "case_id": case_id,
+        **payload.model_dump(),
+        "file_path": None,
+        "created_at": now,
+    }
 
 
 @app.post("/cases/{case_id}/evidence/upload", response_model=EvidenceOut)
@@ -499,24 +594,55 @@ async def upload_evidence_file(
             INSERT INTO evidence_items(id, case_id, kind, title, url, content, file_path, event_date, sensitive, created_at)
             VALUES(?,?,?,?,?,?,?,?,?,?)
             """,
-            (ev_id, case_id, "file", title, None, None, str(out_path), event_date, 1 if sensitive else 0, now),
+            (
+                ev_id,
+                case_id,
+                "file",
+                title,
+                None,
+                None,
+                str(out_path),
+                event_date,
+                1 if sensitive else 0,
+                now,
+            ),
         )
 
     # If image, compute image hash embedding for similarity
     if ext in [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"]:
         vec, meta = image_ahash_embed(data)
-        upsert_vector(case_id=case_id, ref_type="evidence", ref_id=ev_id, modality="image", vec=vec, meta=meta)
+        upsert_vector(
+            case_id=case_id, ref_type="evidence", ref_id=ev_id, modality="image", vec=vec, meta=meta
+        )
 
-    audit("evidence.uploaded", _actor(request.headers), case_id, {"evidence_id": ev_id, "filename": file.filename})
+    audit(
+        "evidence.uploaded",
+        _actor(request.headers),
+        case_id,
+        {"evidence_id": ev_id, "filename": file.filename},
+    )
     try:
         rebuild_fts(case_id)
     except Exception:
         pass
-    return {"id": ev_id, "case_id": case_id, "kind": "file", "title": title, "url": None, "content": None, "file_path": str(out_path), "event_date": event_date, "sensitive": sensitive, "created_at": now}
+    return {
+        "id": ev_id,
+        "case_id": case_id,
+        "kind": "file",
+        "title": title,
+        "url": None,
+        "content": None,
+        "file_path": str(out_path),
+        "event_date": event_date,
+        "sensitive": sensitive,
+        "created_at": now,
+    }
 
 
 @app.get("/evidence/file")
-def download_evidence_file(path: str = Query(..., description="Absolute path returned by evidence.file_path")):
+def download_evidence_file(
+    path: str = Query(..., description="Absolute path returned by evidence.file_path"),
+):
     # Restrict to UPLOAD_DIR
     p = Path(path).resolve()
     if UPLOAD_DIR not in p.parents and p != UPLOAD_DIR:
@@ -529,7 +655,9 @@ def download_evidence_file(path: str = Query(..., description="Absolute path ret
 @app.delete("/cases/{case_id}/evidence/{evidence_id}")
 def delete_evidence(case_id: str, evidence_id: str, request: Request):
     with db_cursor() as cur:
-        row = cur.execute("SELECT file_path FROM evidence_items WHERE id=? AND case_id=?", (evidence_id, case_id)).fetchone()
+        row = cur.execute(
+            "SELECT file_path FROM evidence_items WHERE id=? AND case_id=?", (evidence_id, case_id)
+        ).fetchone()
         if not row:
             raise HTTPException(404, "Evidence not found")
         cur.execute("DELETE FROM evidence_items WHERE id=? AND case_id=?", (evidence_id, case_id))
@@ -571,23 +699,48 @@ def run_search(case_id: str, payload: SearchQuery, request: Request):
                 case_id,
                 json.dumps(q, ensure_ascii=False),
                 json.dumps(result["results"], ensure_ascii=False),
-                json.dumps([{"source": r["source"], "category": r.get("category")} for r in result["results"]], ensure_ascii=False),
+                json.dumps(
+                    [
+                        {"source": r["source"], "category": r.get("category")}
+                        for r in result["results"]
+                    ],
+                    ensure_ascii=False,
+                ),
                 1 if result.get("cached") else 0,
                 now,
             ),
         )
 
     # Index search run
-    text_blob = json.dumps(q, ensure_ascii=False) + "\n" + " ".join([r.get("source","") + " " + r.get("url","") for r in result["results"]])
-    upsert_vector(case_id=case_id, ref_type="search_run", ref_id=run_id, modality="text", vec=hash_embed(text_blob), meta={"query_hash": result.get("query_hash")})
+    text_blob = (
+        json.dumps(q, ensure_ascii=False)
+        + "\n"
+        + " ".join([r.get("source", "") + " " + r.get("url", "") for r in result["results"]])
+    )
+    upsert_vector(
+        case_id=case_id,
+        ref_type="search_run",
+        ref_id=run_id,
+        modality="text",
+        vec=hash_embed(text_blob),
+        meta={"query_hash": result.get("query_hash")},
+    )
 
-    audit("search.run", _actor(request.headers), case_id, {"search_run_id": run_id, "cached": result.get("cached", False)})
+    audit(
+        "search.run",
+        _actor(request.headers),
+        case_id,
+        {"search_run_id": run_id, "cached": result.get("cached", False)},
+    )
     return {
         "id": run_id,
         "case_id": case_id,
         "query": q,
         "results": result["results"],
-        "sources": [{"source": r["source"], "category": r.get("category"), "url": r["url"]} for r in result["results"]],
+        "sources": [
+            {"source": r["source"], "category": r.get("category"), "url": r["url"]}
+            for r in result["results"]
+        ],
         "cached": bool(result.get("cached")),
         "created_at": now,
     }
@@ -596,18 +749,22 @@ def run_search(case_id: str, payload: SearchQuery, request: Request):
 @app.get("/cases/{case_id}/search-runs", response_model=List[SearchRunOut])
 def list_search_runs(case_id: str):
     with db_cursor() as cur:
-        rows = cur.execute("SELECT * FROM search_runs WHERE case_id=? ORDER BY created_at DESC", (case_id,)).fetchall()
+        rows = cur.execute(
+            "SELECT * FROM search_runs WHERE case_id=? ORDER BY created_at DESC", (case_id,)
+        ).fetchall()
     out = []
     for r in rows:
-        out.append({
-            "id": r["id"],
-            "case_id": r["case_id"],
-            "query": json.loads(r["query_json"]),
-            "results": json.loads(r["results_json"]),
-            "sources": json.loads(r["sources_json"]),
-            "cached": bool(r["cached"]),
-            "created_at": r["created_at"],
-        })
+        out.append(
+            {
+                "id": r["id"],
+                "case_id": r["case_id"],
+                "query": json.loads(r["query_json"]),
+                "results": json.loads(r["results_json"]),
+                "sources": json.loads(r["sources_json"]),
+                "cached": bool(r["cached"]),
+                "created_at": r["created_at"],
+            }
+        )
     return out
 
 
@@ -638,7 +795,9 @@ def similarity(
         for vid, score, ref_type, ref_id, meta in hits:
             title = None
             if ref_type == "evidence":
-                row = cur.execute("SELECT title, kind FROM evidence_items WHERE id=?", (ref_id,)).fetchone()
+                row = cur.execute(
+                    "SELECT title, kind FROM evidence_items WHERE id=?", (ref_id,)
+                ).fetchone()
                 if row:
                     title = row["title"]
             elif ref_type == "search_run":
@@ -652,14 +811,16 @@ def similarity(
                 if row:
                     title = row["title"]
 
-            resolved.append({
-                "vector_id": vid,
-                "score": round(float(score), 6),
-                "ref_type": ref_type,
-                "ref_id": ref_id,
-                "title": title,
-                "meta": meta,
-            })
+            resolved.append(
+                {
+                    "vector_id": vid,
+                    "score": round(float(score), 6),
+                    "ref_type": ref_type,
+                    "ref_id": ref_id,
+                    "title": title,
+                    "meta": meta,
+                }
+            )
     return {"case_id": case_id, "modality": modality, "hits": resolved}
 
 
@@ -667,14 +828,18 @@ def similarity(
 @app.get("/cases/{case_id}/documents", response_model=List[DocumentOut])
 def list_documents(case_id: str):
     with db_cursor() as cur:
-        rows = cur.execute("SELECT * FROM documents WHERE case_id=? ORDER BY created_at DESC", (case_id,)).fetchall()
+        rows = cur.execute(
+            "SELECT * FROM documents WHERE case_id=? ORDER BY created_at DESC", (case_id,)
+        ).fetchall()
     return [dict(r) for r in rows]
 
 
 @app.get("/cases/{case_id}/documents/{doc_id}", response_model=DocumentOut)
 def get_document(case_id: str, doc_id: str):
     with db_cursor() as cur:
-        row = cur.execute("SELECT * FROM documents WHERE id=? AND case_id=?", (doc_id, case_id)).fetchone()
+        row = cur.execute(
+            "SELECT * FROM documents WHERE id=? AND case_id=?", (doc_id, case_id)
+        ).fetchone()
     if not row:
         raise HTTPException(404, "Document not found")
     return dict(row)
@@ -684,7 +849,11 @@ def get_document(case_id: str, doc_id: str):
 def get_document_pdf(case_id: str, doc_id: str):
     doc = get_document(case_id, doc_id)
     pdf = render_pdf_bytes(doc["title"], doc["content"])
-    return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f"inline; filename={doc_id}.pdf"})
+    return Response(
+        pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename={doc_id}.pdf"},
+    )
 
 
 @app.post("/cases/{case_id}/documents/render", response_model=DocumentOut)
@@ -713,14 +882,32 @@ def render_and_store_document(case_id: str, payload: DocumentRenderRequest, requ
             (doc_id, case_id, payload.doc_type, title, rendered.content, now),
         )
     # Index for retrieval
-    upsert_vector(case_id=case_id, ref_type="doc", ref_id=doc_id, modality="text",
-                 vec=hash_embed(title + "\n" + rendered.content), meta={"doc_type": payload.doc_type})
-    audit("document.rendered", _actor(request.headers), case_id, {"doc_id": doc_id, "doc_type": payload.doc_type})
+    upsert_vector(
+        case_id=case_id,
+        ref_type="doc",
+        ref_id=doc_id,
+        modality="text",
+        vec=hash_embed(title + "\n" + rendered.content),
+        meta={"doc_type": payload.doc_type},
+    )
+    audit(
+        "document.rendered",
+        _actor(request.headers),
+        case_id,
+        {"doc_id": doc_id, "doc_type": payload.doc_type},
+    )
     try:
         rebuild_fts(case_id)
     except Exception:
         pass
-    return {"id": doc_id, "case_id": case_id, "doc_type": payload.doc_type, "title": title, "content": rendered.content, "created_at": now}
+    return {
+        "id": doc_id,
+        "case_id": case_id,
+        "doc_type": payload.doc_type,
+        "title": title,
+        "content": rendered.content,
+        "created_at": now,
+    }
 
 
 @app.delete("/cases/{case_id}/documents/{doc_id}")
@@ -738,6 +925,7 @@ def delete_document(case_id: str, doc_id: str, request: Request):
 
 
 # ---------------- Graph ----------------
+
 
 @app.get("/cases/{case_id}/citations")
 def citation_map(case_id: str):
@@ -767,6 +955,7 @@ def citation_map(case_id: str):
         )
     return {"case_id": case_id, "map": out}
 
+
 @app.get("/cases/{case_id}/graph")
 def case_graph(case_id: str):
     with db_cursor() as cur:
@@ -779,7 +968,9 @@ def case_graph(case_id: str):
 
 # ---------------- Global Search ----------------
 @app.get("/search")
-def search(q: str = Query(...), case_id: Optional[str] = Query(None), limit: int = Query(30, ge=1, le=200)):
+def search(
+    q: str = Query(...), case_id: Optional[str] = Query(None), limit: int = Query(30, ge=1, le=200)
+):
     results = global_search(q, case_id=case_id, limit=limit)
     return {"q": q, "case_id": case_id, "results": results}
 
@@ -789,8 +980,13 @@ def search(q: str = Query(...), case_id: Optional[str] = Query(None), limit: int
 def rag_summary(case_id: str, request: Request):
     case = get_case(case_id)
     with db_cursor() as cur:
-        ev = cur.execute("SELECT title, url, content FROM evidence_items WHERE case_id=? ORDER BY created_at DESC LIMIT 20", (case_id,)).fetchall()
-    evidence_blob = "\n\n".join([f"- {r['title']}\n{r['url'] or ''}\n{(r['content'] or '')[:1200]}" for r in ev])
+        ev = cur.execute(
+            "SELECT title, url, content FROM evidence_items WHERE case_id=? ORDER BY created_at DESC LIMIT 20",
+            (case_id,),
+        ).fetchall()
+    evidence_blob = "\n\n".join(
+        [f"- {r['title']}\n{r['url'] or ''}\n{(r['content'] or '')[:1200]}" for r in ev]
+    )
     evidence_blob = redact_text(evidence_blob, sensitive=True)
     summary = summarize_case({"case": case, "evidence": evidence_blob})
     audit("rag.summary", _actor(request.headers), case_id, {})
@@ -808,7 +1004,9 @@ def rag_retrieve(case_id: str, q: str = Query(...), top_k: int = Query(6, ge=1, 
             title = None
             snippet = ""
             if ref_type == "evidence":
-                r = cur.execute("SELECT title, url, content FROM evidence_items WHERE id=?", (ref_id,)).fetchone()
+                r = cur.execute(
+                    "SELECT title, url, content FROM evidence_items WHERE id=?", (ref_id,)
+                ).fetchone()
                 if r:
                     title = r["title"]
                     snippet = (r["url"] or "") + "\n" + (r["content"] or "")
@@ -818,17 +1016,29 @@ def rag_retrieve(case_id: str, q: str = Query(...), top_k: int = Query(6, ge=1, 
                     title = r["title"]
                     snippet = r["notes"] or ""
             elif ref_type == "doc":
-                r = cur.execute("SELECT title, content FROM documents WHERE id=?", (ref_id,)).fetchone()
+                r = cur.execute(
+                    "SELECT title, content FROM documents WHERE id=?", (ref_id,)
+                ).fetchone()
                 if r:
                     title = r["title"]
                     snippet = r["content"] or ""
             elif ref_type == "search_run":
-                r = cur.execute("SELECT results_json FROM search_runs WHERE id=?", (ref_id,)).fetchone()
+                r = cur.execute(
+                    "SELECT results_json FROM search_runs WHERE id=?", (ref_id,)
+                ).fetchone()
                 if r:
                     title = "Search run"
                     snippet = r["results_json"][:800]
             snippet = redact_text(snippet, sensitive=True)[:600]
-            out.append({"score": round(float(score), 6), "ref_type": ref_type, "ref_id": ref_id, "title": title, "snippet": snippet})
+            out.append(
+                {
+                    "score": round(float(score), 6),
+                    "ref_type": ref_type,
+                    "ref_id": ref_id,
+                    "title": title,
+                    "snippet": snippet,
+                }
+            )
     return {"q": q, "hits": out}
 
 
@@ -844,9 +1054,14 @@ def export_case(case_id: str):
 def list_audit(case_id: Optional[str] = None, limit: int = Query(200, ge=1, le=500)):
     with db_cursor() as cur:
         if case_id:
-            rows = cur.execute("SELECT * FROM audit_log WHERE case_id=? ORDER BY created_at DESC LIMIT ?", (case_id, limit)).fetchall()
+            rows = cur.execute(
+                "SELECT * FROM audit_log WHERE case_id=? ORDER BY created_at DESC LIMIT ?",
+                (case_id, limit),
+            ).fetchall()
         else:
-            rows = cur.execute("SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+            rows = cur.execute(
+                "SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?", (limit,)
+            ).fetchall()
     out = []
     for r in rows:
         meta = {}
@@ -854,5 +1069,14 @@ def list_audit(case_id: Optional[str] = None, limit: int = Query(200, ge=1, le=5
             meta = json.loads(r["meta_json"] or "{}")
         except Exception:
             meta = {}
-        out.append({"id": r["id"], "actor": r["actor"], "action": r["action"], "case_id": r["case_id"], "meta": meta, "created_at": r["created_at"]})
+        out.append(
+            {
+                "id": r["id"],
+                "actor": r["actor"],
+                "action": r["action"],
+                "case_id": r["case_id"],
+                "meta": meta,
+                "created_at": r["created_at"],
+            }
+        )
     return out

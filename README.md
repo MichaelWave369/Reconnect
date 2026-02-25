@@ -107,7 +107,7 @@ docker compose up --build
 ```
 Then open http://localhost:8000
 
-## Data & Privacy
+## Security & Privacy
 
 - **SQLite database**: `backend/data/reconnect.db`
 - **Uploaded files**: `backend/data/uploads/`
@@ -131,3 +131,38 @@ The audit log creates a documented trail of your search efforts, which can be us
 ---
 
 *Built with love for everyone searching for someone who matters to them.*
+
+
+## Development
+
+From `backend/`:
+
+```bash
+make dev    # install runtime + dev tooling
+make lint   # ruff format check + lint
+make test   # pytest
+make run    # start app
+```
+
+Equivalent direct commands:
+
+```bash
+pip install -r requirements-dev.txt
+ruff format --check .
+ruff check .
+pytest -q
+python main.py
+```
+
+## Project Policies
+
+Please read these before contributing:
+
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- [SECURITY.md](SECURITY.md)
+- [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md)
+
+### Local data deletion
+
+To remove all local case data and uploads, stop the app and delete `backend/data/`.

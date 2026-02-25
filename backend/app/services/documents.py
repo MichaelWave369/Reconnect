@@ -19,6 +19,7 @@ SAFE_DOC_TYPES = {
     "presumed_death_petition",
 }
 
+
 @dataclass
 class RenderedDoc:
     doc_type: str
@@ -31,6 +32,7 @@ def _fill(template: str, ctx: Dict[str, Any]) -> str:
     def repl(m):
         k = m.group(1).strip()
         return str(ctx.get(k, "")).strip()
+
     return re.sub(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}", repl, template)
 
 
@@ -45,13 +47,15 @@ def render_document(doc_type: str, ctx: Dict[str, Any]) -> RenderedDoc:
     now = ctx.get("now", datetime.utcnow().strftime("%B %d, %Y"))
 
     base_ctx = dict(ctx)
-    base_ctx.update({
-        "subject_name": subject,
-        "dob": dob,
-        "case_title": case_title,
-        "case_id": case_id,
-        "today": now,
-    })
+    base_ctx.update(
+        {
+            "subject_name": subject,
+            "dob": dob,
+            "case_title": case_title,
+            "case_id": case_id,
+            "today": now,
+        }
+    )
 
     if doc_type == "welfare_check_script":
         title = "Welfare Check Call Script"
@@ -192,6 +196,7 @@ NOTE: This is a draft template. Verify the correct statute and filing requiremen
 def render_pdf_bytes(title: str, content: str) -> bytes:
     """Create a simple PDF from text."""
     from io import BytesIO
+
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=LETTER)
     w, h = LETTER
