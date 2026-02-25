@@ -193,7 +193,9 @@ def _table_info(cur: sqlite3.Cursor, table: str) -> Iterable[sqlite3.Row]:
 
 
 def _table_exists(cur: sqlite3.Cursor, table: str) -> bool:
-    row = cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone()
+    row = cur.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+    ).fetchone()
     return row is not None
 
 
@@ -217,7 +219,9 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     # Ensure indices
     cur.execute("CREATE INDEX IF NOT EXISTS idx_vectors_case ON vectors(case_id)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_vectors_ref ON vectors(ref_type, ref_id)")
-    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uidx_vectors_key ON vectors(case_id, ref_type, ref_id, modality)")
+    cur.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uidx_vectors_key ON vectors(case_id, ref_type, ref_id, modality)"
+    )
 
     # Create new tables if they weren't present (tags/tasks/docs)
     # (SCHEMA_SQL will create them too, but keeping here for older partial schema)
