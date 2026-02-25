@@ -1,0 +1,11 @@
+backend/data/
+backend/data/uploads/
+*.db
+.venv/
+backend/.venv/
+__pycache__/
+.env
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

@@ -16,7 +16,16 @@ def _now_utc() -> str:
     return datetime.utcnow().replace(microsecond=0).strftime("%Y-%m-%d %H:%M UTC")
 
 
-def _wrap_text(c: canvas.Canvas, text: str, x: float, y: float, width: float, leading: float = 14, font="Helvetica", size=10) -> float:
+def _wrap_text(
+    c: canvas.Canvas,
+    text: str,
+    x: float,
+    y: float,
+    width: float,
+    leading: float = 14,
+    font="Helvetica",
+    size=10,
+) -> float:
     """Draw text with simple wrapping; returns new y."""
     if not text:
         return y
@@ -51,7 +60,9 @@ def generate_case_packet(case_id: str) -> Path:
     """Create a PDF case packet with evidence, timeline, tasks, tags, docs, and search runs."""
     out_dir = UPLOAD_DIR / "exports"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"reconnect_case_{case_id}_{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}.pdf"
+    out_path = (
+        out_dir / f"reconnect_case_{case_id}_{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}.pdf"
+    )
 
     with db_cursor() as cur:
         case_row = cur.execute("SELECT * FROM cases WHERE id=?", (case_id,)).fetchone()
@@ -130,11 +141,20 @@ def generate_case_packet(case_id: str) -> Path:
 
     if tags:
         y -= 4
-        y = _wrap_text(c, "Tags: " + ", ".join([t["label"] for t in tags]), margin, y, w - 2 * margin, leading=13)
+        y = _wrap_text(
+            c,
+            "Tags: " + ", ".join([t["label"] for t in tags]),
+            margin,
+            y,
+            w - 2 * margin,
+            leading=13,
+        )
 
     if case_row["notes"]:
         y -= 6
-        y = _wrap_text(c, "Notes:", margin, y, w - 2 * margin, leading=13, font="Helvetica-Bold", size=11)
+        y = _wrap_text(
+            c, "Notes:", margin, y, w - 2 * margin, leading=13, font="Helvetica-Bold", size=11
+        )
         y = _wrap_text(c, str(case_row["notes"]), margin, y, w - 2 * margin, leading=13)
 
     # Timeline
@@ -165,9 +185,13 @@ def generate_case_packet(case_id: str) -> Path:
             due = t["due_date"] or ""
             pr = t["priority"]
             status = t["status"]
-            y = _wrap_text(c, f"[{status}] (P{pr}) {due} — {t['title']}", margin, y, w - 2 * margin, leading=12)
+            y = _wrap_text(
+                c, f"[{status}] (P{pr}) {due} — {t['title']}", margin, y, w - 2 * margin, leading=12
+            )
             if t["notes"]:
-                y = _wrap_text(c, f"Notes: {t['notes']}", margin + 14, y, w - 2 * margin - 14, leading=12)
+                y = _wrap_text(
+                    c, f"Notes: {t['notes']}", margin + 14, y, w - 2 * margin - 14, leading=12
+                )
 
     # Evidence
     y -= 8
@@ -189,11 +213,17 @@ def generate_case_packet(case_id: str) -> Path:
             y -= 14
             c.setFont("Helvetica", 10)
             if it["url"]:
-                y = _wrap_text(c, f"URL: {it['url']}", margin + 14, y, w - 2 * margin - 14, leading=12)
+                y = _wrap_text(
+                    c, f"URL: {it['url']}", margin + 14, y, w - 2 * margin - 14, leading=12
+                )
             if it["content"]:
-                y = _wrap_text(c, f"Notes: {it['content']}", margin + 14, y, w - 2 * margin - 14, leading=12)
+                y = _wrap_text(
+                    c, f"Notes: {it['content']}", margin + 14, y, w - 2 * margin - 14, leading=12
+                )
             if it["file_path"]:
-                y = _wrap_text(c, f"File: {it['file_path']}", margin + 14, y, w - 2 * margin - 14, leading=12)
+                y = _wrap_text(
+                    c, f"File: {it['file_path']}", margin + 14, y, w - 2 * margin - 14, leading=12
+                )
 
     # Documents (generated outputs)
     y -= 8
@@ -205,10 +235,21 @@ def generate_case_packet(case_id: str) -> Path:
             if y < 1.4 * inch:
                 c.showPage()
                 y = h - margin
-            y = _wrap_text(c, f"{d['created_at']} — {d['doc_type']}: {d['title']}", margin, y, w - 2 * margin, leading=12, font="Helvetica-Bold", size=10)
+            y = _wrap_text(
+                c,
+                f"{d['created_at']} — {d['doc_type']}: {d['title']}",
+                margin,
+                y,
+                w - 2 * margin,
+                leading=12,
+                font="Helvetica-Bold",
+                size=10,
+            )
             snippet = (d["content"] or "")[:600]
             if snippet:
-                y = _wrap_text(c, snippet.replace("\n", " "), margin + 14, y, w - 2 * margin - 14, leading=12)
+                y = _wrap_text(
+                    c, snippet.replace("\n", " "), margin + 14, y, w - 2 * margin - 14, leading=12
+                )
 
     # Search runs
     y -= 8
@@ -220,15 +261,38 @@ def generate_case_packet(case_id: str) -> Path:
             if y < 1.2 * inch:
                 c.showPage()
                 y = h - margin
-            y = _wrap_text(c, f"{sr['created_at']} — cached={bool(sr['cached'])}", margin, y, w - 2 * margin, leading=12, font="Helvetica-Bold", size=10)
+            y = _wrap_text(
+                c,
+                f"{sr['created_at']} — cached={bool(sr['cached'])}",
+                margin,
+                y,
+                w - 2 * margin,
+                leading=12,
+                font="Helvetica-Bold",
+                size=10,
+            )
             try:
                 q = json.loads(sr["query_json"])
-                y = _wrap_text(c, "Query: " + json.dumps(q, ensure_ascii=False), margin + 14, y, w - 2 * margin - 14, leading=12)
+                y = _wrap_text(
+                    c,
+                    "Query: " + json.dumps(q, ensure_ascii=False),
+                    margin + 14,
+                    y,
+                    w - 2 * margin - 14,
+                    leading=12,
+                )
             except Exception:
                 pass
             try:
                 res = json.loads(sr["results_json"])
-                y = _wrap_text(c, f"Results: {len(res)} linkouts", margin + 14, y, w - 2 * margin - 14, leading=12)
+                y = _wrap_text(
+                    c,
+                    f"Results: {len(res)} linkouts",
+                    margin + 14,
+                    y,
+                    w - 2 * margin - 14,
+                    leading=12,
+                )
             except Exception:
                 pass
 

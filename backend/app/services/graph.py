@@ -18,7 +18,9 @@ def extract_entities(text: str) -> Dict[str, List[str]]:
     return {"email": emails, "phone": phones, "url": urls}
 
 
-def build_case_graph(case_row: Dict[str, Any], evidence_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+def build_case_graph(
+    case_row: Dict[str, Any], evidence_rows: List[Dict[str, Any]]
+) -> Dict[str, Any]:
     """Build a lightweight graph (nodes/edges) from case and evidence."""
     nodes: Dict[str, Dict[str, Any]] = {}
     edges: List[Dict[str, Any]] = []
@@ -27,8 +29,12 @@ def build_case_graph(case_row: Dict[str, Any], evidence_rows: List[Dict[str, Any
         if node_id not in nodes:
             nodes[node_id] = {"id": node_id, "label": label, "type": ntype, "meta": meta or {}}
 
-    def add_edge(src: str, dst: str, etype: str, weight: float = 1.0, meta: Dict[str, Any] | None = None):
-        edges.append({"source": src, "target": dst, "type": etype, "weight": weight, "meta": meta or {}})
+    def add_edge(
+        src: str, dst: str, etype: str, weight: float = 1.0, meta: Dict[str, Any] | None = None
+    ):
+        edges.append(
+            {"source": src, "target": dst, "type": etype, "weight": weight, "meta": meta or {}}
+        )
 
     subject_id = f"person:{case_row['subject_name']}"
     add_node(subject_id, case_row["subject_name"], "person", {"role": "subject"})
@@ -58,10 +64,17 @@ def build_case_graph(case_row: Dict[str, Any], evidence_rows: List[Dict[str, Any
     # evidence nodes + derived entities
     for ev in evidence_rows:
         evid = f"evidence:{ev['id']}"
-        add_node(evid, ev.get("title") or ev["id"], "evidence", {"kind": ev.get("kind"), "date": ev.get("event_date")})
+        add_node(
+            evid,
+            ev.get("title") or ev["id"],
+            "evidence",
+            {"kind": ev.get("kind"), "date": ev.get("event_date")},
+        )
         add_edge(subject_id, evid, "has_evidence", 0.5)
 
-        blob = " ".join([str(ev.get("title") or ""), str(ev.get("url") or ""), str(ev.get("content") or "")])
+        blob = " ".join(
+            [str(ev.get("title") or ""), str(ev.get("url") or ""), str(ev.get("content") or "")]
+        )
         ents = extract_entities(blob)
         for kind, vals in ents.items():
             for v in vals:
